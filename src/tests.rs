@@ -490,3 +490,36 @@ fn test_v0_2_broken_sample() {
         assert_eq!(base_root, current_root);
     }
 }
+
+
+fn random_h256(rng: &mut impl Rng) -> H256 {
+    let mut buf = [0u8; 32];
+    rng.fill(&mut buf);
+    buf.into()
+}
+
+use rand::{Rng, SeedableRng};
+use rand::rngs::StdRng;
+
+#[test]
+fn test_memory_use() {
+    let mut smt = SMT::default();
+    let mut rng = StdRng::from_seed([0xAA; 32]);
+    let update_count = 1 << 24;
+    println!("{:>10}\t{:>10}", "ELEMENTS", "MEMORY");
+    for i in 0..update_count {
+        let key = random_h256(&mut rng);
+        let value = random_h256(&mut rng);
+        smt.update(key, value).unwrap();
+        if i & (i-1) == 0 || i == update_count - 1 {
+            let future = simple_process_stats::ProcessStats::get();
+            let process_stats = futures::executor::block_on(future).unwrap();
+            let memory_usage_megabytes = process_stats.memory_usage_bytes / 1024 / 1024;
+            println!("{:10}\t{:10}", i, memory_usage_megabytes);
+        }
+    }
+
+    let mut input = String::new();
+    println!("done inserting; press enter...");
+    std::io::stdin().read_line(&mut input).expect("error: unable to read user input");
+}
